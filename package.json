@@ -1,0 +1,23 @@
+{
+  "name": "drivex-monorepo",
+  "version": "1.0.0",
+  "description": "Gestionnaire de fichiers Google Drive multi-plateforme (Web, Mobile, Desktop)",
+  "private": true,
+  "workspaces": [
+    "frontend-web",
+    "frontend-desktop",
+    "frontend-mobile",
+    "backend"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev -w frontend-web\" \"npm run dev -w backend\"",
+    "dev:all": "concurrently \"npm run dev -w frontend-web\" \"npm run dev -w backend\" \"npm run dev -w frontend-desktop\"",
+    "dev:desktop": "npm run dev -w frontend-desktop",
+    "dev:backend": "npm run dev -w backend",
+    "build": "npm run build --workspaces",
+    "install:all": "npm install"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0"
+  }
+}
