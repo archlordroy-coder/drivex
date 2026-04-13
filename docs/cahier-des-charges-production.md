@@ -26,8 +26,8 @@ Le projet repose sur une architecture modulaire centralisée dans un monorepo af
 
 | Composant | Technologie | Rôle |
 |---|---|---|
-| Frontend Web | React, Vite | Interface SPA déployée sur Vercel |
-| Frontend Mobile | React, Electron | Application native Android/iOS (build via Electron) |
+| Frontend Web | React, Vite, PWA | Interface SPA déployée sur Vercel |
+| Frontend Mobile | React, Capacitor | Application native Android/iOS (build via Capacitor) |
 | Frontend Desktop | React, Electron | Application de bureau multi-OS (build via Electron) |
 | Backend | Node.js, Express | API REST partagée (Serverless sur Vercel) |
 | Stockage cloud | Google Drive API v3 | Source de vérité des fichiers |
@@ -43,17 +43,36 @@ Approche hybride :
 
 ### 3.1 Gestion des fichiers (CRUD)
 
-- **Upload** : drag & drop, uploads multiples, résumables via API Drive.
-- **Téléchargement** : récupération des fichiers avec dialogue natif de sauvegarde (Desktop).
+- **Upload** : drag & drop (Web/Desktop), uploads multiples, résumables via API Drive.
+- **Téléchargement** : récupération des fichiers avec dialogue natif de sauvegarde (Desktop/Mobile).
 - **Organisation** : création de dossiers, navigation arborescente, renommage, déplacement.
 - **Recherche** : moteur basé sur les requêtes `q` de l’API Google Drive.
 - **Prévisualisation** : images, PDF, texte directement dans l’interface.
 
-### 3.2 Synchronisation (Desktop & Mobile)
+### 3.2 Fonctionnalités spécifiques par plateforme
+
+#### Mobile (Inspiration & Référence)
+- **Scan de documents** : Utilisation de la caméra pour scanner et convertir en PDF directement vers Drive.
+- **Authentification Biométrique** : Verrouillage de l'application via Empreinte digitale ou FaceID.
+- **Extension de Partage (Share Extension)** : Envoyer des fichiers vers DriveX depuis n'importe quelle autre application mobile.
+- **Gestion du Cache Intelligent** : Mise en cache agressive pour minimiser l'usage de la data mobile.
+- **Mode Sombre Natif** : Adaptation automatique au thème du système.
+
+#### Web (Ajustements)
+- **Support PWA** : Installation sur l'écran d'accueil, fonctionnement offline partiel.
+- **Web Share API** : Partage natif des fichiers depuis le navigateur vers d'autres apps.
+- **IndexedDB** : Persistance locale des métadonnées pour un chargement instantané.
+
+#### Desktop (Ajustements)
+- **Intégration Menu Contextuel** : "Envoyer vers DriveX" par clic droit sur un fichier local.
+- **Systray / Barre de menus** : Icône de notification pour suivre l'état de la synchronisation en un coup d'œil.
+- **Disque Virtuel (VFS)** : Montage d'un lecteur réseau virtuel pour accéder aux fichiers sans encombrer le disque local (FUSE).
+
+### 3.3 Synchronisation (Desktop & Mobile)
 
 - **SyncEngine** : gestion des deltas entre local et cloud.
 - **Mode hors-ligne** : modifications locales puis synchronisation au retour de la connexion.
-- **Watcher** : détection en temps réel des changements locaux (ex. `chokidar`).
+- **Watcher** : détection en temps réel des changements locaux (ex. `chokidar` sur Desktop, FileSystem Observer sur Mobile).
 
 ## 4) Sécurité et authentification
 
@@ -80,29 +99,28 @@ L’accès aux données passe par OAuth 2.0 Google.
 - **Production web** : déploiement automatisé sur Vercel via `vercel.json`.
 - **Builds natifs** :
   - Desktop : `.exe`, `.dmg`, `.deb` via `electron-builder`.
-  - Mobile : `.apk`, `.ipa` via `electron-builder`.
+  - Mobile : `.apk`, `.ipa` via Capacitor (Android Studio / Xcode).
 
-### 5.2 Scripts de gestion (package.json racine)
+### 5.2 Scripts de gestion (package.json racine via npm workspaces)
 
 ```json
 {
   "name": "drivex-monorepo",
   "version": "1.0.0",
-  "description": "Gestionnaire de fichiers Google Drive multi-plateforme (Web, Mobile, Desktop)",
   "private": true,
+  "workspaces": [
+    "frontend-web",
+    "frontend-desktop",
+    "frontend-mobile",
+    "backend"
+  ],
   "scripts": {
-    "dev": "concurrently \"npm run dev:web\" \"npm run dev:backend\"",
-    "dev:web": "cd frontend-web && npm run dev",
-    "dev:desktop": "cd frontend-desktop && npm run dev",
-    "dev:backend": "cd backend && npm run dev",
-    "build": "npm run build:web && npm run build:desktop && npm run build:mobile",
-    "build:web": "cd frontend-web && npm run build",
-    "build:desktop": "cd frontend-desktop && npm run build -- --desktop",
-    "build:mobile": "cd frontend-desktop && npm run build -- --mobile",
-    "install:all": "npm install && cd frontend-web && npm install && cd ../frontend-desktop && npm install && cd ../backend && npm install"
-  },
-  "devDependencies": {
-    "concurrently": "^8.2.0"
+    "dev": "concurrently \"npm run dev -w frontend-web\" \"npm run dev -w backend\"",
+    "dev:all": "concurrently \"npm run dev -w frontend-web\" \"npm run dev -w backend\" \"npm run dev -w frontend-desktop\"",
+    "dev:desktop": "npm run dev -w frontend-desktop",
+    "dev:backend": "npm run dev -w backend",
+    "build": "npm run build --workspaces",
+    "install:all": "npm install"
   }
 }
 ```
@@ -110,13 +128,11 @@ L’accès aux données passe par OAuth 2.0 Google.
 | Commande | Action |
 |---|---|
 | `npm run dev` | Lance frontend web + backend en développement |
+| `npm run dev:all` | Lance web + backend + desktop |
 | `npm run dev:desktop` | Lance l’application Electron en développement |
 | `npm run dev:backend` | Lance le backend Express en développement |
-| `npm run build` | Build web + desktop + mobile |
-| `npm run build:web` | Compile la version web pour Vercel |
-| `npm run build:desktop` | Compile les binaires Windows/Linux/macOS |
-| `npm run build:mobile` | Compile les binaires Android/iOS |
-| `npm run install:all` | Installe les dépendances de tous les sous-projets |
+| `npm run build` | Build tous les projets via workspaces |
+| `npm run install:all` | Installe les dépendances du monorepo |
 
 ## 6) Stratégie de production 100% gratuite et sans blocage
 
